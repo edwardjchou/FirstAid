@@ -17,6 +17,10 @@ from nets_segmentation import *
 from data import *
 from ops import *
 
+
+matplotlib.use('Agg')
+
+
 def create_exec_statement_test(opts):
     """
     Creates an executable statement string.

@@ -11,6 +11,9 @@ import socket
 import sys
 import time
 
+matplotlib.use('Agg')
+
+
 def find_data_shape(path_data):
     """
     Reads in one piece of data to find out number of channels.

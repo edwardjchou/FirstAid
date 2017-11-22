@@ -17,6 +17,9 @@ from nets_classification import *
 from data import *
 from ops import *
 
+matplotlib.use('Agg')
+
+
 def create_exec_statement_test(opts):
     """
     Creates an executable statement string.
@@ -201,6 +204,7 @@ class classifier:
         self.val_loss = []
 
         if self.opts.bool_display:
+            print('hello')
             self.f1 = plt.figure()
             self.plot_accuracy = self.f1.add_subplot(121)
             self.plot_loss = self.f1.add_subplot(122)
