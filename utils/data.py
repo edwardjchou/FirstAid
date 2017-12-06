@@ -4,14 +4,16 @@ import matplotlib.animation as animation
 import numpy as np
 from os import listdir, remove, mkdir
 from os.path import isfile, join, isdir
-from pylab import *
+#from pylab import *
 import scipy.misc
 import tensorflow as tf
 import socket
 import sys
 import time
 
+import matplotlib
 matplotlib.use('Agg')
+from pylab import *
 
 
 def find_data_shape(path_data):
@@ -32,12 +34,14 @@ def find_data_shape(path_data):
         dir_file = listdir(path_patient)
         # Trying to look at each image file.
         for name_file in dir_file:
-            if name_file[-3:] != '.h5':
+            if name_file[-3:] != '.h5' and name_file[-5:] != '.hdf5':
                 continue
             path_file = join(path_patient, name_file)
             try:
                 with h5py.File(path_file) as hf:
                     img = np.array(hf.get('data'))
+                    print('WARNING: hard-coded adding third dimension to input images. This will likely cause problems later.')
+                    img = np.expand_dims(img, -1)
                     matrix_size = img.shape[0]
                     num_channels = img.shape[2]
             except:

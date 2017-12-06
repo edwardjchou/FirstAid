@@ -305,13 +305,24 @@ class classifier:
         ind_list = np.random.choice(range(len(self.X_tr)), self.opts.batch_size, replace=True)
         for iter_data, ind in enumerate(ind_list):
             img_filename = np.random.choice(listdir(join(self.opts.path_train, self.X_tr[ind])))
+            failcount = 0
             while(True):
+#                print(img_filename, failcount)
                 try:
                     with h5py.File(join(self.opts.path_train, self.X_tr[ind], img_filename)) as hf:
-                        data_iter = np.array(hf.get('data'))
+#                        data_iter = np.array(hf.get('data'))
+                        
+                        data_iter = np.asarray(hf.get('data')).astype(np.float64)
+                        try:
+                            data_iter = np.mean(data_iter, 2)
+                        except: pass
+
+                        data_iter = np.expand_dims(data_iter, -1)
                         data_label = np.array(hf.get('label'))
                     break
                 except:
+                    failcount += 1
+#                    print(failcount)
                     time.sleep(0.001)
             data_iter = data_augment(data_iter)
             self.dataXX[iter_data,:,:,:] = data_iter
@@ -351,8 +362,17 @@ class classifier:
         dataYY = np.zeros((1))
         while(True):
             try:
+#                print('Trying' + path_file)
                 with h5py.File(path_file) as hf:
-                    dataXX[0,:,:,:] = np.array(hf.get('data'))
+
+                    data_iter = np.asarray(hf.get('data')).astype(np.float64)
+                    try:
+                        data_iter = np.mean(data_iter, 2)
+                    except: pass
+                    data_iter = np.expand_dims(data_iter, -1)
+                    dataXX[0,:,:,:] = data_iter
+
+#                    dataXX[0,:,:,:] = np.array(hf.get('data'))
                     dataYY[0]   = np.array(hf.get('label'))
                     break
             except:
