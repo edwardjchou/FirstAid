@@ -19,6 +19,8 @@ from ops import *
 
 matplotlib.use('Agg')
 
+positive_class_weight = 1.0
+
 
 def create_exec_statement_test(opts):
     """
@@ -124,7 +126,7 @@ class classifier:
         exec exec_statement
         self.L2_loss = get_L2_loss(self.opts.l2)
         self.L1_loss = get_L1_loss(self.opts.l1)
-        self.ce_loss = get_ce_loss(self.pred, self.yTe)
+        self.ce_loss = get_weighted_ce_loss(pred, multi_outputs[i], positive_class_weight)
         self.cost = self.ce_loss + self.L2_loss + self.L1_loss
         self.prob = tf.nn.softmax(self.pred)
         self.acc = get_accuracy(self.pred, self.yTe)
@@ -167,7 +169,7 @@ class classifier:
                 with tf.name_scope('gpu%d' % i) as scope:
                     exec_statement = create_exec_statement_train(opts)
                     exec exec_statement
-                    loss = get_ce_loss(pred, multi_outputs[i])
+                    loss = get_weighted_ce_loss(pred, multi_outputs[i], positive_class_weight)
                     loss_multi.append(loss)
                     cost = loss + self.L2_loss + self.L1_loss
 
@@ -181,7 +183,7 @@ class classifier:
             with tf.name_scope('cpu0') as scope:
                 exec_statement = create_exec_statement_train(opts)
                 exec exec_statement
-                loss = get_ce_loss(pred, multi_outputs[i])
+                loss = get_weighted_ce_loss(pred, multi_outputs[i], positive_class_weight)
                 loss_multi.append(loss)
                 cost = loss + self.L2_loss + self.L1_loss
 

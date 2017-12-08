@@ -50,6 +50,7 @@ def main(args):
     CNN_obj.test_model() #Test the Model.
     CNN_obj.do_inference() #Do inference on inference set.
 
+    print("DONE")
     # We're done.
     return 0
     

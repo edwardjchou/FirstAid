@@ -35,6 +35,9 @@ def get_seg_loss(logits, labels, num_class):
 def get_ce_loss(logits, labels):
     return tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits, labels=labels))
 
+def get_weighted_ce_loss(logits, labels, positive_weights):
+    return tf.reduce_mean(tf.nn.weighted_cross_entropy_with_logits(targets=labels, logits=logits, pos_weight=positive_weights))
+
 def get_accuracy(logits, labels):
     """
     Calculates accuracy of predictions.  Softmax based on largest.
