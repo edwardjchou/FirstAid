@@ -212,7 +212,13 @@ class classifier:
         self.dataXX = np.zeros(xTr_size, dtype=np.float32)
         self.dataYY = np.zeros(yTr_size, dtype=np.int64)
 
-        self.sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True))
+        session_conf = tf.ConfigProto(
+            device_count={'CPU': 1, 'GPU': 0},
+            allow_soft_placement=True,
+            log_device_placement=False
+        )
+        #self.sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True))
+        self.sess = tf.Session(config=session_conf)
 
     def average_accuracy(self, logits, truth):
         prediction = np.argmax(logits, axis=1)
@@ -302,6 +308,7 @@ class classifier:
         - i: (int) iteration
         """
         # Filling in the data.
+        print('train_one_iter')
         ind_list = np.random.choice(range(len(self.X_tr)), self.opts.batch_size, replace=True)
         for iter_data, ind in enumerate(ind_list):
             img_filename = np.random.choice(listdir(join(self.opts.path_train, self.X_tr[ind])))
@@ -338,6 +345,7 @@ class classifier:
         - self: (object)
         - path_file: (str) path of the file to inference.
         """
+        print('inference_one_iter')
         dataXX = np.zeros((1, self.matrix_size, self.matrix_size, self.num_channels))
         while(True):
             try:
@@ -358,6 +366,7 @@ class classifier:
         - self: (object)
         - path_file: (str) path of the file to inference.
         """
+        print('test_one_iter')
         dataXX = np.zeros((1, self.matrix_size, self.matrix_size, self.num_channels))
         dataYY = np.zeros((1))
         while(True):
@@ -389,6 +398,7 @@ class classifier:
         - path_X: (str) file path to the data.
         """
         # Initializing variables.
+        print('test_all')
         X_list = listdir(path_X)
         for name in X_list:
             if name[0] == '.':
@@ -479,18 +489,145 @@ class classifier:
         """
         Loads model and test.
         """
+        init_op = tf.initialize_all_variables()
+        self.sess.run(init_op)
+        
+        print('test_model')
+        print(self.opts.path_test)
         if not self.opts.path_test:
+            print(self.opts.path_test)
             return 0
         # Initializing
         start_time = time.time()
         loss_te = 0.0
         self.saver.restore(self.sess, self.opts.path_model)
+        layers = tf.trainable_variables()
+        print('layer[0]: ' + str(self.sess.run(layers[0])))
+        print('layer[-1]: ' + str(self.sess.run(layers[-1])))
+        
+        dataXX = np.zeros((1, self.matrix_size, self.matrix_size, self.num_channels))
+        dataYY = np.zeros((1))
+        #path_file = '/data/edema_randomized/testing/00015532/00015532_000.hdf5'
+        #path_file = '/data/edema_randomized/testing/00004134/00004134_000.hdf5'
+                
+        path_file = '/data/edema_randomized/testing/00004095/00004095_000.hdf5'
+        
+        #path_file = '/data/edema_randomized/testing/00004134/00004134_000.hdf5'
+        #path_file = '/data/edema_randomized/testing/00004134/00004134_000.hdf5'
+        #path_file = '/data/edema_randomized/testing/00004134/00004134_000.hdf5'
+        image_decomp = [] 
+        print(h5py.File(path_file, 'r'))
+        while(True):
+            try:
+                with h5py.File(path_file, 'r') as hf:
+                    #print(np.asarray(hf.get('data')).astype(np.float64))
+                    image_decomp = hf.get('data')[:]
+                    print(hf.get('data').shape)
+                    plt.imshow(hf.get('data'))
+                    plt.savefig('hf_getdata.png')
+                    data_iter = np.asarray(hf.get('data')).astype(np.float64)
+                    try:
+                        data_iter = np.mean(data_iter, 2)
+                    except Exception as e:
+                        print(e)
+                        pass
+                    data_iter = np.expand_dims(data_iter, -1)
+                    dataXX[0,:,:,:] = data_iter
+                    dataYY[0]   = np.array(hf.get('label'))
+                    break
+            except:
+                time.sleep(0.001)
+
+        print('dataXX: ' + str(dataXX.shape))
+        print('hf-label: ' + str(dataYY))
+        feed = {self.xTe:dataXX, self.is_training:0, self.yTe:dataYY, self.keep_prob:1.0}
+        loss, acc, pred = self.sess.run((self.ce_loss, self.acc, self.pred), feed_dict=feed)
+        print(loss, acc, pred, dataYY)
+        
+        feed = {self.xTe:dataXX, self.is_training:0, self.yTe:dataYY, self.keep_prob:1.0}
+        print('prob: ' + str(self.sess.run((self.prob), feed_dict=feed)))
+
+        tensornames = [tensor.name for tensor in self.sess.graph.as_graph_def().node]
+        for i in tensornames:
+            break
+            #print(str(i))
+            pass
+            try:
+                print(str(i) + ', ' + str(tf.shape(self.sess.graph.get_tensor_by_name(str(i) + ':0'))))
+            except:
+                pass
+            pass
+        predicted_class = 1
+        nb_classes = 2
+        one_hot = tf.sparse_to_dense(predicted_class, [nb_classes], 1.0)
+
+        last_conv_layer = self.sess.graph.get_tensor_by_name('concat_8:0')
+        signal = tf.multiply(self.sess.graph.get_tensor_by_name('Softmax:0'), one_hot)
+        
+        #signal = tf.multiply(self.sess.graph.get_tensor_by_name('Argmax:0'), one_hot)
+        
+        loss = tf.reduce_mean(signal)
+        print(loss)
+        # loss = self.ce_loss
+        grads = tf.gradients(self.ce_loss, last_conv_layer)[0]
+        norm_grads = grads
+        # norm_grads = tf.div(grads, tf.sqrt(tf.reduce_mean(tf.square(grads))) + tf.constant(1e-5))
+        print('celoss: ' + str(self.ce_loss))
+        output, grads_val = self.sess.run([last_conv_layer, norm_grads], feed_dict=feed)
+
+        output = output[0]
+        print(output)
+        grads_val = grads_val[0]
+        print(grads_val)
+        weights = np.mean(grads_val, axis = (0, 1))
+        cam = np.ones(output.shape[0 : 2], dtype = np.float32)
+
+        for i, w in enumerate(weights):
+            cam += w * output[:, :, i]
+
+        cam = np.maximum(cam, 0)
+        cam = cam / np.max(cam)
+        print(cam)
+        cam = resize(cam, (224,224))
+
+        plt.imshow(cam)
+        plt.savefig('cam.png')
+        print('output shape: ' + str(output.shape))
+        print('grads_val shape: ' + str(grads_val.shape))
+        
+
+        #print(self.sess.run([layers[-1], dataYY], feed_dict=feed))
+        
+        ##########################################################
+        classifier = self.sess.graph.get_tensor_by_name('Reshape:0')
+        print(classifier)
+        print(self.yTe)
+        correct_scores = tf.gather_nd(classifier, tf.stack((tf.range(dataXX.shape[0],dtype=tf.int64), self.yTe), axis=1))
+        print(correct_scores)
+        saliency_ts = tf.gradients(correct_scores, [self.xTe])[0]
+        saliency=self.sess.run(saliency_ts, feed_dict=feed)
+        saliency=np.max(np.abs(saliency), axis=3)
+        print('saliency shape: ' + str(saliency.shape))
+        i = 0
+        mask_size = 1
+        plt.subplot(2, mask_size, i + 1)
+        plt.imshow(image_decomp)
+        plt.axis('off')
+        plt.title('0')
+        plt.subplot(2, mask_size, mask_size + i + 1)
+        plt.title('saliency')
+        plt.imshow(saliency[i], cmap=plt.cm.hot)
+        plt.axis('off')
+        plt.gcf().set_size_inches(10, 4)
+        plt.savefig('saliency.png')
 
     def do_inference(self):
         """
         Loads model and does inference.
         """
+        print('do_inference')
         if not self.opts.path_inference:
+            print(self.opts.path_inference)
             return 0
         # Initializing
         start_time = time.time()
@@ -505,6 +642,7 @@ class classifier:
                     continue
                 path_file = join(path_imgs, name_img)
                 prob = self.inference_one_iter(path_file)
+                print(prob)
                 h5f = h5py.File(path_file, 'a')
                 h5f.create_dataset('label_pred', data=prob)
                 h5f.close()
